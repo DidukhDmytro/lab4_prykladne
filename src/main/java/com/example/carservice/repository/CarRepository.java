@@ -2,6 +2,7 @@ package com.example.carservice.repository;
 
 import com.example.carservice.domain.Car;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -11,5 +12,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * by the database primary-key constraint.</p>
  */
 public interface CarRepository extends JpaRepository<Car, String> {
+    @EntityGraph(attributePaths = "owner")
     Optional<Car> findByVin(String vin);
 }
