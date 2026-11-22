@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,7 +32,11 @@ public class CarController {
                         String.format(ServiceMessages.CUSTOMER_NOT_FOUND, request.ownerId())));
         Car car = registrationService.registerCar(carMapper.toDomain(request, owner));
         CarResponse response = carMapper.toResponse(car);
-        URI location = URI.create(ApiPaths.CARS + "/" + car.getVin());
+        URI location = UriComponentsBuilder.fromPath(ApiPaths.CARS)
+                .pathSegment(car.getVin())
+                .build()
+                .encode()
+                .toUri();
         return ResponseEntity.created(location).body(response);
     }
 

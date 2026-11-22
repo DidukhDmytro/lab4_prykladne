@@ -269,6 +269,17 @@ public class RepairOrderService {
         return pricingPolicy.calculateFinalPrice(order);
     }
 
+    @Transactional(readOnly = true)
+    public PriceQuote calculatePrices(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
+        return new PriceQuote(
+                pricingPolicy.calculateBasePrice(order),
+                pricingPolicy.calculateFinalPrice(order));
+    }
+
 
     @Transactional(readOnly = true)
     public Present createPresent(UUID orderId) {

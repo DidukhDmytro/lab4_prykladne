@@ -3,7 +3,7 @@ POST {{baseUrl}}/api/orders
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001"
+  "vin": "{{carVin}}"
 }
 
 > {%
@@ -85,7 +85,7 @@ POST {{baseUrl}}/api/orders
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001"
+  "vin": "{{carVin}}"
 }
 
 > {%

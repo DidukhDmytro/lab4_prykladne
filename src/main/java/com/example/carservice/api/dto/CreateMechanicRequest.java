@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 
 public record CreateMechanicRequest(
         @NotBlank(message = ApiMessages.FULL_NAME_REQUIRED)
-        @Size(max = 255, message = ApiMessages.FULL_NAME_TOO_LONG)
+        @Size(max = ApiMessages.MAX_FULL_NAME_LENGTH, message = ApiMessages.FULL_NAME_TOO_LONG)
         String fullName,
 
         @NotNull(message = ApiMessages.SPECIALIZATION_REQUIRED)

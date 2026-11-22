@@ -35,6 +35,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -73,8 +74,10 @@ class RestControllerTest {
                         new OrderMapper(),
                         new PriceMapper(),
                         new PresentMapper(),
-                        new PageMapper()))
+                        new PageMapper(),
+                        new OrderPageableResolver()))
                 .setControllerAdvice(advice)
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
     }
 
@@ -181,6 +184,22 @@ class RestControllerTest {
         orderMvc.perform(post(ApiPaths.APPROVE_ORDER, orderId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value(ApiMessages.CONFLICT_TITLE));
+    }
+
+    @Test
+    void invalidOrderPageFiltersAndSortsReturn400ProblemDetails() throws Exception {
+        orderMvc.perform(get(ApiPaths.ORDERS).param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        orderMvc.perform(get(ApiPaths.ORDERS).param("page", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        orderMvc.perform(get(ApiPaths.ORDERS).param("status", "UNKNOWN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        orderMvc.perform(get(ApiPaths.ORDERS).param("sort", "works"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test

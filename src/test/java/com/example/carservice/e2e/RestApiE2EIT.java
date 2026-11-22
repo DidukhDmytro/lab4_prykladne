@@ -1,9 +1,13 @@
 package com.example.carservice.e2e;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.example.carservice.api.dto.OrderResponse;
+import com.example.carservice.domain.enumerate.OrderStatus;
 import com.example.carservice.support.PostgreSqlTestContainerConfiguration;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -12,12 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
-@ActiveProfiles("test")
 @Import(PostgreSqlTestContainerConfiguration.class)
 class RestApiE2EIT {
     /**
@@ -59,12 +61,8 @@ class RestApiE2EIT {
                 .expectStatus().isOk()
                 .expectBody(OrderResponse.class)
                 .value(order -> {
-                    if (!"COMPLETED".equals(order.status().name())) {
-                        throw new AssertionError("Expected completed status");
-                    }
-                    if (order.completedAt() == null) {
-                        throw new AssertionError("Expected completedAt");
-                    }
+                    assertThat(order.status()).isEqualTo(OrderStatus.COMPLETED);
+                    assertThat(order.completedAt()).isNotNull();
                 });
 
         OrderResponse urgent = createOrder(vin);
@@ -110,19 +108,13 @@ class RestApiE2EIT {
                 .exchange().expectStatus().isOk()
                 .expectBody(OrderResponse.class)
                 .value(order -> {
-                    if (!mechanicId.equals(order.mechanicId())
-                            || !"IN_PROGRESS".equals(order.status().name())) {
-                        throw new AssertionError("First order changed unexpectedly");
-                    }
+                    assertThat(order.mechanicId()).isEqualTo(mechanicId);
+                    assertThat(order.status()).isEqualTo(OrderStatus.IN_PROGRESS);
                 });
         restTestClient.get().uri("/api/orders/{id}", second.id())
                 .exchange().expectStatus().isOk()
                 .expectBody(OrderResponse.class)
-                .value(order -> {
-                    if (order.mechanicId() != null) {
-                        throw new AssertionError("Second order should remain unassigned");
-                    }
-                });
+                .value(order -> assertThat(order.mechanicId()).isNull());
 
         OrderResponse empty = createOrder(vin);
         problemDetail(restTestClient.post().uri("/api/orders/{id}/approve", empty.id())
@@ -208,55 +200,42 @@ class RestApiE2EIT {
         String vin = "E2E-" + suffix;
         UUID customerId = createCustomer(suffix);
         createCar(vin, customerId);
-        UUID[] ownIds = new UUID[55];
-        for (int index = 0; index < ownIds.length; index++) {
-            ownIds[index] = createOrder(vin).id();
+        for (int index = 0; index < 55; index++) {
+            createOrder(vin);
         }
 
-        restTestClient.get().uri("/api/orders?status=CREATED&page=0&size=1&sort=id,asc")
-                .exchange().expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.size").isEqualTo(1)
-                .jsonPath("$.content").isArray();
+        assertPage(getOrderPage("/api/orders?status=CREATED&page=0&size=1&sort=id,asc"), 1);
+        assertPage(getOrderPage("/api/orders?status=CREATED&page=0&size=50&sort=id,asc"), 50);
+        assertPage(getOrderPage("/api/orders?status=CREATED&page=0&size=51&sort=id,asc"), 50);
+        assertPage(getOrderPage("/api/orders?status=CREATED&page=0&size=0&sort=id,asc"), 20);
 
-        restTestClient.get().uri("/api/orders?status=CREATED&page=0&size=50&sort=id,asc")
-                .exchange().expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.size").isEqualTo(50);
+        Map<?, ?> beyondLastPage = getOrderPage(
+                "/api/orders?status=CREATED&page=100&size=20&sort=id,asc");
+        assertThat(pageContent(beyondLastPage)).isEmpty();
 
-        restTestClient.get().uri("/api/orders?status=CREATED&page=0&size=51&sort=id,asc")
-                .exchange().expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.size").isEqualTo(50);
+        List<String> descendingIds = pageContent(getOrderPage(
+                        "/api/orders?status=CREATED&page=0&size=50&sort=id,desc"))
+                .stream()
+                .map(this::orderId)
+                .map(UUID::toString)
+                .toList();
+        assertThat(descendingIds).isSortedAccordingTo(Comparator.reverseOrder());
+    }
 
-        restTestClient.get().uri("/api/orders?status=CREATED&page=0&size=0&sort=id,asc")
-                .exchange().expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.size").isEqualTo(20);
-
-        restTestClient.get().uri("/api/orders?status=CREATED&page=100&size=20&sort=id,asc")
-                .exchange().expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.content").isArray();
-
-        restTestClient.get().uri("/api/orders?sort=works,asc")
-                .exchange().expectStatus().isBadRequest();
-
-        restTestClient.get().uri("/api/orders?status=CREATED&page=0&size=20&sort=id,asc")
-                .exchange().expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.content[*].id")
-                .value(ids -> {
-                    if (!(ids instanceof List<?> list)) {
-                        throw new AssertionError("Expected ID list");
-                    }
-                    for (Object id : list) {
-                        if (!containsOwnId(ownIds, id.toString())) {
-                            continue;
-                        }
-                        return;
-                    }
-                });
+    @Test
+    void invalidOrderPageFiltersAndSortsReturn400ProblemDetails() {
+        restTestClient.get().uri("/api/orders?page=-1")
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.status").isEqualTo(400);
+        restTestClient.get().uri("/api/orders?page=abc")
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.status").isEqualTo(400);
+        restTestClient.get().uri("/api/orders?status=UNKNOWN")
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.status").isEqualTo(400);
+        restTestClient.get().uri("/api/orders?sort=works")
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.status").isEqualTo(400);
     }
 
     private UUID createCustomer(String suffix) {
@@ -377,11 +356,7 @@ class RestApiE2EIT {
     }
 
     private void assertProblemDetail(Map<String, Object> body) {
-        if (!body.containsKey("status")
-                || !body.containsKey("title")
-                || !body.containsKey("detail")) {
-            throw new AssertionError("Missing ProblemDetail fields");
-        }
+        assertThat(body).containsKeys("status", "title", "detail");
     }
 
     private void assertProblemSafe(RestTestClient.ResponseSpec response) {
@@ -390,28 +365,45 @@ class RestApiE2EIT {
                     String body = new String(
                             result.getResponseBodyContent(),
                             StandardCharsets.UTF_8);
-                    if (body.contains("Exception")
-                            || body.contains("StackTrace")
-                            || body.contains("SELECT ")
-                            || body.contains("at com.example")) {
-                        throw new AssertionError("Unsafe error response");
-                    }
+                    assertThat(body).doesNotContain(
+                            "Exception",
+                            "StackTrace",
+                            "SELECT ",
+                            "at com.example");
                 });
     }
 
     private void assertEqualsBigDecimal(String expected, Object actual) {
-        if (actual == null
-                || new BigDecimal(expected).compareTo(new BigDecimal(actual.toString())) != 0) {
-            throw new AssertionError("Expected " + expected + " but got " + actual);
-        }
+        assertThat(actual).isNotNull();
+        assertThat(new BigDecimal(actual.toString())).isEqualByComparingTo(expected);
     }
 
-    private boolean containsOwnId(UUID[] ownIds, String id) {
-        for (UUID ownId : ownIds) {
-            if (ownId.toString().equals(id)) {
-                return true;
-            }
-        }
-        return false;
+    private Map<?, ?> getOrderPage(String uri) {
+        return restTestClient.get().uri(uri)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(Map.class)
+                .returnResult()
+                .getResponseBody();
+    }
+
+    private List<?> pageContent(Map<?, ?> page) {
+        assertThat(page.get("content")).isInstanceOf(List.class);
+        return (List<?>) page.get("content");
+    }
+
+    private UUID orderId(Object order) {
+        assertThat(order).isInstanceOf(Map.class);
+        Object id = ((Map<?, ?>) order).get("id");
+        assertThat(id).isInstanceOf(String.class);
+        return UUID.fromString(id.toString());
+    }
+
+    private void assertPage(Map<?, ?> page, int expectedSize) {
+        List<?> content = pageContent(page);
+        assertThat(page.get("size")).isEqualTo(expectedSize);
+        assertThat(content).hasSize(expectedSize);
+        assertThat(((Number) page.get("totalElements")).longValue()).isGreaterThanOrEqualTo(55);
+        assertThat(content.stream().map(this::orderId).toList()).hasSize(expectedSize);
     }
 }

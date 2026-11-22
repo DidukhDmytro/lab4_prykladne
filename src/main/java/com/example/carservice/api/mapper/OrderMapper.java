@@ -1,10 +1,8 @@
 package com.example.carservice.api.mapper;
 
 import com.example.carservice.api.dto.AddWorkRequest;
-import com.example.carservice.api.dto.CreateOrderRequest;
 import com.example.carservice.api.dto.OrderResponse;
 import com.example.carservice.api.dto.WorkResponse;
-import com.example.carservice.domain.Car;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
 import java.util.ArrayList;
@@ -14,14 +12,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class OrderMapper {
-    public RepairOrder toDomain(CreateOrderRequest request, Car car) {
-        return new RepairOrder(UUID.randomUUID(), car);
-    }
-
-    public RepairOrder toDomain(UUID orderId, Car car) {
-        return new RepairOrder(orderId, car);
-    }
-
     public ServiceWork toDomain(AddWorkRequest request) {
         return new ServiceWork(
                 request.description(),

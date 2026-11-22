@@ -17,12 +17,16 @@ POST {{baseUrl}}/api/cars
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001",
+  "vin": "HTTP-{{$uuid}}",
   "make": "Example Motors",
   "model": "Roadster",
   "year": 2010,
   "ownerId": "{{customerId}}"
 }
+
+> {%
+  client.global.set("carVin", response.body.vin);
+%}
 
 ###
 # Expected HTTP 201: register a general mechanic
@@ -44,7 +48,7 @@ GET {{baseUrl}}/api/customers/{{customerId}}
 
 ###
 # Expected HTTP 200: verify the registered car
-GET {{baseUrl}}/api/cars/HTTP-VIN-001
+GET {{baseUrl}}/api/cars/{{carVin}}
 
 ###
 # Expected HTTP 200: verify the registered mechanic

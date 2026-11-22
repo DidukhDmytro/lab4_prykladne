@@ -620,6 +620,24 @@ class RepairOrderServiceTest {
         verify(pricingPolicy).calculateFinalPrice(order);
     }
 
+    @Test
+    @DisplayName("Calculates both prices from one order lookup")
+    void calculatesBothPricesFromOneOrderLookup() {
+        stubExistingOrder();
+        BigDecimal basePrice = new BigDecimal("15.00");
+        BigDecimal finalPrice = new BigDecimal("18.00");
+        when(pricingPolicy.calculateBasePrice(order)).thenReturn(basePrice);
+        when(pricingPolicy.calculateFinalPrice(order)).thenReturn(finalPrice);
+
+        PriceQuote result = service.calculatePrices(ORDER_ID);
+
+        assertEquals(basePrice, result.basePrice());
+        assertEquals(finalPrice, result.finalPrice());
+        verify(repairOrderRepository).findById(ORDER_ID);
+        verify(pricingPolicy).calculateBasePrice(order);
+        verify(pricingPolicy).calculateFinalPrice(order);
+    }
+
     private void prepareFor(OrderStatus status, String operation) {
         switch (status) {
             case CREATED -> {

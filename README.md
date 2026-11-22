@@ -65,7 +65,8 @@ Errors use Spring RFC 9457 `application/problem+json` responses. The body includ
 `title`, `detail`, `type`, and `instance`.
 
 - `400 Bad Request`: Bean Validation failures, malformed JSON, invalid enum/path values,
-  constraint violations, invalid sort properties, and invalid arguments.
+  invalid pagination values (including negative or non-numeric pages), constraint violations,
+  invalid sort properties, and invalid arguments.
 - `404 Not Found`: unknown entities and unknown routes.
 - `409 Conflict`: duplicate data, data-integrity conflicts, optimistic-lock conflicts, and
   domain/business-rule violations.
@@ -86,6 +87,7 @@ the requested operation.
 - Sort whitelist: `status`, `priority`, `finalPrice`, `completedAt`, `id`
 - `id,asc` is appended as a tie-breaker unless `id` is already requested
 - Multiple sort parameters are supported
+- Invalid page numbers, status values, and sort properties return `400 Bad Request` ProblemDetails
 
 The service paginates repair-order IDs first, then loads the associated works and relationships
 with an entity graph and restores page order. It does not use collection `join fetch` pagination.
@@ -94,7 +96,8 @@ with an entity graph and restores page order. It does not use collection `join f
 
 The IntelliJ `.http` collection is under `http/`. Select the `local` environment from
 `http/http-client.env.json`, which defines `baseUrl=http://localhost:8080`. The scripts store
-created IDs in variables where later requests depend on them.
+created IDs in variables where later requests depend on them. Registration uses a unique VIN on
+each run; the negative-scenario script registers its own customer, car, and mechanic.
 
 ## Test levels
 

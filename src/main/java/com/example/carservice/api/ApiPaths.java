@@ -1,6 +1,7 @@
 package com.example.carservice.api;
 
 public class ApiPaths {
+    public static final String ROOT_PATH = "/";
     public static final String API = "/api";
     public static final String CUSTOMERS = API + "/customers";
     public static final String CUSTOMER_BY_ID = CUSTOMERS + "/{id}";

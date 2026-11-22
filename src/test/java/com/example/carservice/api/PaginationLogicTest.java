@@ -1,68 +1,64 @@
 package com.example.carservice.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.carservice.exception.InvalidArgumentException;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.mockito.Mockito;
 
 class PaginationLogicTest {
-    @Test
-    void clampsLargePageSizeTo50() {
-        Pageable pageable = OrderController.normalizePageable(
-                PageRequest.of(0, 51, Sort.by("id").ascending()));
+    private final OrderPageableResolver resolver = new OrderPageableResolver();
 
-        assertEquals(ApiMessages.MAX_PAGE_SIZE, pageable.getPageSize());
+    @Test
+    void clampsLargePageSizeAndAddsIdTieBreaker() {
+        Pageable pageable = resolver.resolve(
+                PageRequest.of(0, ApiMessages.MAX_PAGE_SIZE + 1, Sort.by(ApiMessages.ORDER_STATUS).descending()),
+                null);
+
+        assertThat(pageable.getPageSize()).isEqualTo(ApiMessages.MAX_PAGE_SIZE);
+        assertThat(pageable.getSort().toList()).containsExactly(
+                Sort.Order.desc(ApiMessages.ORDER_STATUS),
+                Sort.Order.asc(ApiMessages.ORDER_ID));
     }
 
     @Test
-    void keepsValidDefaultAndBoundarySizes() {
-        assertEquals(ApiMessages.DEFAULT_PAGE_SIZE, OrderController.normalizePageable(
-                PageRequest.of(0, ApiMessages.DEFAULT_PAGE_SIZE)).getPageSize());
-        assertEquals(1, OrderController.normalizePageable(
-                PageRequest.of(0, 1)).getPageSize());
-        assertEquals(50, OrderController.normalizePageable(
-                PageRequest.of(0, 50)).getPageSize());
+    void defaultsUnsortedPageToIdAscending() {
+        Pageable pageable = resolver.resolve(PageRequest.of(0, ApiMessages.DEFAULT_PAGE_SIZE), null);
+
+        assertThat(pageable.getSort().toList()).containsExactly(Sort.Order.asc(ApiMessages.ORDER_ID));
     }
 
     @Test
-    void defaultsZeroOrNegativeSizeTo20() {
-        Pageable zeroSize = Mockito.mock(Pageable.class);
-        org.mockito.Mockito.when(zeroSize.getPageNumber()).thenReturn(0);
-        org.mockito.Mockito.when(zeroSize.getPageSize()).thenReturn(0);
-        org.mockito.Mockito.when(zeroSize.getSort()).thenReturn(Sort.unsorted());
-        assertEquals(ApiMessages.DEFAULT_PAGE_SIZE,
-                OrderController.normalizePageable(zeroSize).getPageSize());
+    void doesNotDuplicateRequestedIdSort() {
+        Pageable pageable = resolver.resolve(
+                PageRequest.of(0, ApiMessages.DEFAULT_PAGE_SIZE, Sort.by(ApiMessages.ORDER_ID).descending()),
+                null);
+
+        assertThat(pageable.getSort().toList()).containsExactly(Sort.Order.desc(ApiMessages.ORDER_ID));
     }
 
-    @Test
-    void appendsIdTieBreakerAndPreservesWhitelistedSort() {
-        Pageable pageable = OrderController.normalizePageable(
-                PageRequest.of(0, 20, Sort.by("status").descending()));
-
-        assertEquals("status", pageable.getSort().toList().get(0).getProperty());
-        assertEquals("id", pageable.getSort().toList().get(1).getProperty());
+    @ParameterizedTest
+    @MethodSource("invalidPageableRequests")
+    void rejectsNegativePageAndNonWhitelistedSort(Pageable pageable, Integer requestedPage) {
+        assertThatThrownBy(() -> resolver.resolve(pageable, requestedPage))
+                .isInstanceOf(InvalidArgumentException.class);
     }
 
-    @Test
-    void doesNotDuplicateIdAndAllowsWhitelist() {
-        Pageable pageable = OrderController.normalizePageable(
-                PageRequest.of(0, 20, Sort.by("id").descending()));
-
-        assertEquals(1, pageable.getSort().stream().count());
-        assertTrue(ApiMessages.ORDER_SORT_PROPERTIES.containsAll(
-                java.util.Set.of("status", "priority", "finalPrice", "completedAt", "id")));
-    }
-
-    @Test
-    void rejectsSortPropertyNotInWhitelist() {
-        assertThrows(InvalidArgumentException.class, () ->
-                OrderController.normalizePageable(
-                        PageRequest.of(0, 20, Sort.by("works").ascending())));
+    static Stream<Arguments> invalidPageableRequests() {
+        return Stream.of(
+                Arguments.of(PageRequest.of(0, ApiMessages.DEFAULT_PAGE_SIZE), -1),
+                Arguments.of(
+                        PageRequest.of(
+                                0,
+                                ApiMessages.DEFAULT_PAGE_SIZE,
+                                Sort.by("works")),
+                        null));
     }
 }

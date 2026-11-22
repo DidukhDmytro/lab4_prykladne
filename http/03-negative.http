@@ -1,9 +1,54 @@
+# Expected HTTP 201: register a customer for negative scenarios
+POST {{baseUrl}}/api/customers
+Content-Type: application/json
+
+{
+  "fullName": "Negative Scenario Customer {{$uuid}}",
+  "phoneNumber": "555-0100"
+}
+
+> {%
+  client.global.set("negativeCustomerId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: register a car with a unique VIN for negative scenarios
+POST {{baseUrl}}/api/cars
+Content-Type: application/json
+
+{
+  "vin": "HTTP-{{$uuid}}",
+  "make": "Example Motors",
+  "model": "Negative Test",
+  "year": 2020,
+  "ownerId": "{{negativeCustomerId}}"
+}
+
+> {%
+  client.global.set("negativeVin", response.body.vin);
+%}
+
+###
+# Expected HTTP 201: register a mechanic for negative scenarios
+POST {{baseUrl}}/api/mechanics
+Content-Type: application/json
+
+{
+  "fullName": "Negative Mechanic {{$uuid}}",
+  "specialization": "GENERAL"
+}
+
+> {%
+  client.global.set("negativeMechanicId", response.body.id);
+%}
+
+###
 # Expected HTTP 201: create an empty order
 POST {{baseUrl}}/api/orders
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001"
+  "vin": "{{negativeVin}}"
 }
 
 > {%
@@ -24,7 +69,7 @@ POST {{baseUrl}}/api/orders
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001"
+  "vin": "{{negativeVin}}"
 }
 
 > {%
@@ -61,7 +106,7 @@ POST {{baseUrl}}/api/orders
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001"
+  "vin": "{{negativeVin}}"
 }
 
 > {%
@@ -94,7 +139,7 @@ PUT {{baseUrl}}/api/orders/{{busyFirstOrderId}}/mechanic
 Content-Type: application/json
 
 {
-  "mechanicId": "{{mechanicId}}"
+  "mechanicId": "{{negativeMechanicId}}"
 }
 
 ###
@@ -103,7 +148,7 @@ POST {{baseUrl}}/api/orders
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001"
+  "vin": "{{negativeVin}}"
 }
 
 > {%
@@ -128,7 +173,7 @@ PUT {{baseUrl}}/api/orders/{{busySecondOrderId}}/mechanic
 Content-Type: application/json
 
 {
-  "mechanicId": "{{mechanicId}}"
+  "mechanicId": "{{negativeMechanicId}}"
 }
 
 ###
@@ -141,11 +186,11 @@ POST {{baseUrl}}/api/cars
 Content-Type: application/json
 
 {
-  "vin": "HTTP-VIN-001",
+  "vin": "{{negativeVin}}",
   "make": "Duplicate",
   "model": "Reject",
   "year": 2020,
-  "ownerId": "{{customerId}}"
+  "ownerId": "{{negativeCustomerId}}"
 }
 
 ###

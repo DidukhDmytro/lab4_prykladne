@@ -10,13 +10,13 @@ import java.util.UUID;
 
 public record CreateCarRequest(
         @NotBlank(message = ApiMessages.VIN_REQUIRED)
-        @Size(max = 64, message = ApiMessages.VIN_TOO_LONG)
+        @Size(max = ApiMessages.MAX_VIN_LENGTH, message = ApiMessages.VIN_TOO_LONG)
         String vin,
 
-        @Size(max = 100, message = ApiMessages.MAKE_TOO_LONG)
+        @Size(max = ApiMessages.MAX_CAR_MAKE_LENGTH, message = ApiMessages.MAKE_TOO_LONG)
         String make,
 
-        @Size(max = 100, message = ApiMessages.MODEL_TOO_LONG)
+        @Size(max = ApiMessages.MAX_CAR_MODEL_LENGTH, message = ApiMessages.MODEL_TOO_LONG)
         String model,
 
         @NotNull(message = ApiMessages.YEAR_REQUIRED)

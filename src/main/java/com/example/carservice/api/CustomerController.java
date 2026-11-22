@@ -12,6 +12,7 @@ import java.net.URI;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,7 +31,11 @@ public class CustomerController {
         Customer customer = registrationService.registerCustomer(
                 customerMapper.toDomain(request));
         CustomerResponse response = customerMapper.toResponse(customer);
-        URI location = URI.create(ApiPaths.CUSTOMERS + "/" + customer.getId());
+        URI location = UriComponentsBuilder.fromPath(ApiPaths.CUSTOMERS)
+                .pathSegment(customer.getId().toString())
+                .build()
+                .encode()
+                .toUri();
         return ResponseEntity.created(location).body(response);
     }
 

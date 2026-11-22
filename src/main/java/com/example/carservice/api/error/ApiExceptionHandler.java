@@ -1,6 +1,7 @@
 package com.example.carservice.api.error;
 
 import com.example.carservice.api.ApiMessages;
+import com.example.carservice.api.ApiPaths;
 import com.example.carservice.exception.EntityAlreadyExistsException;
 import com.example.carservice.exception.EntityNotFoundException;
 import com.example.carservice.exception.InvalidArgumentException;
@@ -17,6 +18,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.core.PropertyReferenceException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -57,11 +59,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         List<Map<String, String>> errors = new ArrayList<>();
         exception.getBindingResult().getFieldErrors().forEach(error -> {
             Map<String, String> item = new LinkedHashMap<>();
-            item.put("field", error.getField());
-            item.put("message", error.getDefaultMessage());
+            item.put(ApiMessages.VALIDATION_FIELD_PROPERTY, error.getField());
+            item.put(ApiMessages.VALIDATION_MESSAGE_PROPERTY, error.getDefaultMessage());
             errors.add(item);
         });
-        problem.setProperty("errors", errors);
+        problem.setProperty(ApiMessages.VALIDATION_ERRORS_PROPERTY, errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).headers(headers).body(problem);
     }
 
@@ -82,7 +84,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @Override
     protected ResponseEntity<Object> handleTypeMismatch(
-            org.springframework.beans.TypeMismatchException exception,
+            TypeMismatchException exception,
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request) {
@@ -249,6 +251,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         if (description.startsWith("uri=")) {
             return URI.create(description.substring(4));
         }
-        return URI.create("/");
+        return URI.create(ApiPaths.ROOT_PATH);
     }
 }

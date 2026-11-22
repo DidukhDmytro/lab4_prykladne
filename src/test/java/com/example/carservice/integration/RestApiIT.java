@@ -295,6 +295,19 @@ class RestApiIT extends IntegrationTest {
         mockMvc.perform(get("/api/orders")
                         .param("sort", "works,asc"))
                 .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/orders").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        mockMvc.perform(get("/api/orders").param("page", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        mockMvc.perform(get("/api/orders").param("status", "UNKNOWN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        mockMvc.perform(get("/api/orders").param("sort", "works"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     private Customer registerCustomer(String name) {
