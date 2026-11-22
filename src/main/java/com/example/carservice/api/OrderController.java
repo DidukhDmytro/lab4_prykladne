@@ -31,7 +31,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,11 +58,17 @@ public class OrderController {
     @GetMapping(ApiPaths.ORDERS)
     public PageResponse<OrderResponse> listOrders(
             @RequestParam(required = false) OrderStatus status,
-            @PageableDefault(size = ApiMessages.DEFAULT_PAGE_SIZE, sort = "id", direction = Sort.Direction.ASC)
-            Pageable pageable) {
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String[] sort) {
+        int requestedSize = size == null ? ApiMessages.DEFAULT_PAGE_SIZE : size;
+        int normalizedSize = requestedSize <= 0
+                ? ApiMessages.DEFAULT_PAGE_SIZE
+                : Math.min(requestedSize, ApiMessages.MAX_PAGE_SIZE);
+        Pageable pageable = buildPageable(page, normalizedSize, sort);
         Pageable validatedPageable = normalizePageable(pageable);
-        Page<RepairOrder> page = repairOrderService.findOrders(status, validatedPageable);
-        return pageMapper.toResponse(page, orderMapper::toResponse);
+        Page<RepairOrder> orderPage = repairOrderService.findOrders(status, validatedPageable);
+        return pageMapper.toResponse(orderPage, orderMapper::toResponse);
     }
 
     @PostMapping(ApiPaths.ORDERS)
@@ -168,11 +173,47 @@ public class OrderController {
             throw new InvalidArgumentException(ApiMessages.TYPE_MISMATCH_DETAIL);
         }
         int requestedSize = pageable.getPageSize();
-        if (requestedSize < 1) {
-            throw new InvalidArgumentException(ApiMessages.TYPE_MISMATCH_DETAIL);
-        }
-        int size = Math.min(requestedSize, ApiMessages.MAX_PAGE_SIZE);
+        int size = requestedSize <= 0
+                ? ApiMessages.DEFAULT_PAGE_SIZE
+                : Math.min(requestedSize, ApiMessages.MAX_PAGE_SIZE);
         return withIdTieBreaker(PageRequest.of(pageable.getPageNumber(), size, pageable.getSort()));
+    }
+
+    private Pageable buildPageable(int page, int size, String[] sortParams) {
+        if (sortParams == null || sortParams.length == 0) {
+            return PageRequest.of(page, size, Sort.by(Sort.Order.asc("id")));
+        }
+        List<Sort.Order> orders = new ArrayList<>();
+        for (int index = 0; index < sortParams.length; index++) {
+            String sortParam = sortParams[index];
+            if (sortParam == null || sortParam.isBlank()) {
+                continue;
+            }
+            if ("asc".equalsIgnoreCase(sortParam.trim())
+                    || "desc".equalsIgnoreCase(sortParam.trim())) {
+                continue;
+            }
+            String[] parts = sortParam.split(",");
+            String property = parts[0].trim();
+            String directionValue = parts.length > 1 ? parts[1].trim() : null;
+            if (directionValue == null
+                    && index + 1 < sortParams.length
+                    && ("asc".equalsIgnoreCase(sortParams[index + 1].trim())
+                    || "desc".equalsIgnoreCase(sortParams[index + 1].trim()))) {
+                directionValue = sortParams[index + 1].trim();
+                index++;
+            }
+            Sort.Direction direction = "desc".equalsIgnoreCase(directionValue)
+                    ? Sort.Direction.DESC
+                    : Sort.Direction.ASC;
+            orders.add(direction == Sort.Direction.ASC
+                    ? Sort.Order.asc(property)
+                    : Sort.Order.desc(property));
+        }
+        if (orders.isEmpty()) {
+            orders.add(Sort.Order.asc("id"));
+        }
+        return PageRequest.of(page, size, Sort.by(orders));
     }
 
     private static Pageable withIdTieBreaker(Pageable pageable) {

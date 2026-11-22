@@ -31,13 +31,13 @@ class PaginationLogicTest {
     }
 
     @Test
-    void rejectsZeroOrNegativeSize() {
+    void defaultsZeroOrNegativeSizeTo20() {
         Pageable zeroSize = Mockito.mock(Pageable.class);
         org.mockito.Mockito.when(zeroSize.getPageNumber()).thenReturn(0);
         org.mockito.Mockito.when(zeroSize.getPageSize()).thenReturn(0);
         org.mockito.Mockito.when(zeroSize.getSort()).thenReturn(Sort.unsorted());
-        assertThrows(InvalidArgumentException.class, () ->
-                OrderController.normalizePageable(zeroSize));
+        assertEquals(ApiMessages.DEFAULT_PAGE_SIZE,
+                OrderController.normalizePageable(zeroSize).getPageSize());
     }
 
     @Test
