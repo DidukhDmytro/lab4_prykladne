@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: carservice
+      POSTGRES_USER: carservice
+      POSTGRES_PASSWORD: carservice
+    ports:
+      - "5432:5432"
+    volumes:
+      - carservice_data:/var/lib/postgresql
+
+volumes:
+  carservice_data:
