@@ -59,9 +59,9 @@ public class OrderController {
     @GetMapping(ApiPaths.ORDERS)
     public PageResponse<OrderResponse> listOrders(
             @RequestParam(required = false) OrderStatus status,
-            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
+            @PageableDefault(size = ApiMessages.DEFAULT_PAGE_SIZE, sort = "id", direction = Sort.Direction.ASC)
             Pageable pageable) {
-        Pageable validatedPageable = withIdTieBreaker(pageable);
+        Pageable validatedPageable = normalizePageable(pageable);
         Page<RepairOrder> page = repairOrderService.findOrders(status, validatedPageable);
         return pageMapper.toResponse(page, orderMapper::toResponse);
     }
@@ -163,7 +163,19 @@ public class OrderController {
         return presentMapper.toResponse(present);
     }
 
-    private Pageable withIdTieBreaker(Pageable pageable) {
+    static Pageable normalizePageable(Pageable pageable) {
+        if (pageable.getPageNumber() < 0) {
+            throw new InvalidArgumentException(ApiMessages.TYPE_MISMATCH_DETAIL);
+        }
+        int requestedSize = pageable.getPageSize();
+        if (requestedSize < 1) {
+            throw new InvalidArgumentException(ApiMessages.TYPE_MISMATCH_DETAIL);
+        }
+        int size = Math.min(requestedSize, ApiMessages.MAX_PAGE_SIZE);
+        return withIdTieBreaker(PageRequest.of(pageable.getPageNumber(), size, pageable.getSort()));
+    }
+
+    private static Pageable withIdTieBreaker(Pageable pageable) {
         List<Sort.Order> orders = new ArrayList<>();
         boolean idPresent = false;
         for (Sort.Order order : pageable.getSort()) {

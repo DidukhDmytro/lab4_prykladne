@@ -5,6 +5,8 @@ import java.util.Set;
 public class ApiMessages {
     public static final int MIN_CAR_YEAR = 1886;
     public static final int MAX_CAR_YEAR = 2100;
+    public static final int DEFAULT_PAGE_SIZE = 20;
+    public static final int MAX_PAGE_SIZE = 50;
 
     public static final String FULL_NAME_REQUIRED = "Full name is required.";
     public static final String FULL_NAME_TOO_LONG = "Full name must not exceed 255 characters.";
