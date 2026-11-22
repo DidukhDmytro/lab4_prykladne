@@ -7,6 +7,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,6 +22,11 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, UUID> 
 
     @EntityGraph(attributePaths = {"works", "car", "car.owner", "assignedMechanic"})
     Optional<RepairOrder> findById(UUID id);
+
+    Page<RepairOrder> findByStatus(OrderStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"works", "car", "car.owner", "assignedMechanic"})
+    List<RepairOrder> findAllById(Iterable<UUID> ids);
 
     @Query("""
             select repairOrder from RepairOrder repairOrder

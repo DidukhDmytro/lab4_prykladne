@@ -1,5 +1,7 @@
 package com.example.carservice.api;
 
+import java.util.Set;
+
 public class ApiMessages {
     public static final int MIN_CAR_YEAR = 1886;
     public static final int MAX_CAR_YEAR = 2100;
@@ -25,6 +27,13 @@ public class ApiMessages {
     public static final String COST_MUST_BE_POSITIVE_OR_ZERO = "Cost must be zero or positive.";
     public static final String COST_DIGITS_INVALID = "Cost must have up to 10 integer digits and 2 fraction digits.";
     public static final String WORKS_REQUIRED = "At least one work item is required.";
+    public static final String SORT_PROPERTY_NOT_ALLOWED = "Sort property '%s' is not allowed.";
+    public static final Set<String> ORDER_SORT_PROPERTIES = Set.of(
+            "status",
+            "priority",
+            "finalPrice",
+            "completedAt",
+            "id");
 
     public static final String BAD_REQUEST_TITLE = "Bad Request";
     public static final String NOT_FOUND_TITLE = "Not Found";

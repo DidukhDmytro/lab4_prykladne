@@ -18,9 +18,16 @@ import com.example.carservice.repository.RepairOrderRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -209,6 +216,37 @@ public class RepairOrderService {
             throw new InvalidArgumentException(ServiceMessages.SERVICE_STATUS_REQUIRED);
         }
         return repairOrderRepository.findByStatus(status);
+    }
+
+    /**
+     * Fetches a page in two steps to avoid in-memory collection pagination. The first query
+     * selects and counts the repair-order IDs using pageable database operations. The second
+     * entity-graph query loads the works and relationships for only those IDs, and the result is
+     * restored to the database page order.
+     */
+    @Transactional(readOnly = true)
+    public Page<RepairOrder> findOrders(OrderStatus status, Pageable pageable) {
+        Page<RepairOrder> idPage = status == null
+                ? repairOrderRepository.findAll(pageable)
+                : repairOrderRepository.findByStatus(status, pageable);
+
+        List<UUID> ids = idPage.getContent().stream()
+                .map(RepairOrder::getId)
+                .toList();
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, idPage.getTotalElements());
+        }
+
+        Map<UUID, RepairOrder> ordersById = repairOrderRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(RepairOrder::getId, Function.identity()));
+        List<RepairOrder> ordered = new ArrayList<>(ids.size());
+        for (UUID id : ids) {
+            RepairOrder order = ordersById.get(id);
+            if (order != null) {
+                ordered.add(order);
+            }
+        }
+        return new PageImpl<>(ordered, pageable, idPage.getTotalElements());
     }
 
 

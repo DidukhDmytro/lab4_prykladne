@@ -6,22 +6,32 @@ import com.example.carservice.api.dto.AssignMechanicRequest;
 import com.example.carservice.api.dto.ChangePriorityRequest;
 import com.example.carservice.api.dto.CreateOrderRequest;
 import com.example.carservice.api.dto.OrderResponse;
+import com.example.carservice.api.dto.PageResponse;
 import com.example.carservice.api.dto.PresentResponse;
 import com.example.carservice.api.dto.PriceResponse;
 import com.example.carservice.api.mapper.OrderMapper;
+import com.example.carservice.api.mapper.PageMapper;
 import com.example.carservice.api.mapper.PresentMapper;
 import com.example.carservice.api.mapper.PriceMapper;
+import com.example.carservice.domain.enumerate.OrderStatus;
 import com.example.carservice.domain.Present;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
 import com.example.carservice.exception.EntityNotFoundException;
+import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.service.RepairOrderService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +39,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,6 +49,22 @@ public class OrderController {
     private final OrderMapper orderMapper;
     private final PriceMapper priceMapper;
     private final PresentMapper presentMapper;
+    private final PageMapper pageMapper;
+
+    /**
+     * Lists repair orders by optional status. Page size defaults to 20 and Spring clamps page size
+     * to 50 through the configured maximum. Sort properties are restricted to the API whitelist.
+     * An {@code id} sort is appended as a tie-breaker when not already requested.
+     */
+    @GetMapping(ApiPaths.ORDERS)
+    public PageResponse<OrderResponse> listOrders(
+            @RequestParam(required = false) OrderStatus status,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
+            Pageable pageable) {
+        Pageable validatedPageable = withIdTieBreaker(pageable);
+        Page<RepairOrder> page = repairOrderService.findOrders(status, validatedPageable);
+        return pageMapper.toResponse(page, orderMapper::toResponse);
+    }
 
     @PostMapping(ApiPaths.ORDERS)
     public ResponseEntity<OrderResponse> createOrder(
@@ -134,5 +161,31 @@ public class OrderController {
     public PresentResponse getPresent(@PathVariable UUID id) {
         Present present = repairOrderService.createPresent(id);
         return presentMapper.toResponse(present);
+    }
+
+    private Pageable withIdTieBreaker(Pageable pageable) {
+        List<Sort.Order> orders = new ArrayList<>();
+        boolean idPresent = false;
+        for (Sort.Order order : pageable.getSort()) {
+            if (!ApiMessages.ORDER_SORT_PROPERTIES.contains(order.getProperty())) {
+                throw new InvalidArgumentException(String.format(
+                        ApiMessages.SORT_PROPERTY_NOT_ALLOWED,
+                        order.getProperty()));
+            }
+            if ("id".equals(order.getProperty())) {
+                idPresent = true;
+            }
+            orders.add(order);
+        }
+        if (!idPresent) {
+            orders.add(Sort.Order.asc("id"));
+        }
+        if (orders.isEmpty()) {
+            orders.add(Sort.Order.asc("id"));
+        }
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(orders));
     }
 }
