@@ -23,18 +23,8 @@ Run the app:
 mvn spring-boot:run
 ```
 
-Run `mvn spring-boot:run` three times, waiting for each run to finish:
-
-1. The first run registers the demo customer, car, and mechanic, creates the order with its fixed
-   UUID, leaves it at `IN_PROGRESS`, and prints its details and a restart message.
-2. The second run prints the fixed order UUID with `loaded from database`, shows the stored
-   mechanic and works, completes pending work, and prints the final price, `COMPLETED` status, and
-   completion time.
-3. The third run prints the fixed order UUID with `loaded from database` and displays the persisted
-   completed details without modifying the order.
-
-Every run also prints pricing demonstrations for normal and urgent pricing, discount-rule order,
-a custom surcharge, and an old-car discount.
+Use the IntelliJ HTTP request collection in `http/` for REST API examples. Start the application
+and select the `local` environment in `http/http-client.env.json`.
 
 The application connects to `jdbc:postgresql://localhost:5432/carservice` with username `carservice`
 and password `carservice`; these are local development credentials defined in `docker-compose.yml`
@@ -76,7 +66,7 @@ minimum API version with `docker version` and create `~/.docker-java.properties`
 ```text
 src/
 ├── main/java/com/example/carservice/
-│   ├── app/          # Spring CommandLineRunner and demo pricing rules
+│   ├── app/          # Custom pricing-rule examples
 │   ├── config/       # Application constants and pricing/clock beans
 │   ├── domain/       # JPA-mapped domain objects and business rules
 │   │   └── enumerate/ # Domain and pricing enums
@@ -115,8 +105,6 @@ src/
 - **Pricing:** `PricingPolicy` is the service-facing abstraction. `PriceCalculator` adapts order
   totals into `PricingContext`; `PricingRuleEngine` orders and applies rules, clamps negative
   results, applies the minimum, and rounds once to two decimals.
-- **Runner:** `CarServiceDemoRunner` is a `CommandLineRunner` active outside the `test` profile. It
-  demonstrates registration, the persisted three-run order lifecycle, and pricing examples.
 
 ## Database schema and migrations
 

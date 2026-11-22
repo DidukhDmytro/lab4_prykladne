@@ -1,0 +1,128 @@
+# Expected HTTP 201: create the lifecycle order
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001"
+}
+
+> {%
+  client.global.set("orderId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: add the engine work
+POST {{baseUrl}}/api/orders/{{orderId}}/works
+Content-Type: application/json
+
+{
+  "description": "Engine service",
+  "partsCost": 200.00,
+  "laborCost": 85.00,
+  "requiredSpecialization": "ENGINE"
+}
+
+###
+# Expected HTTP 201: add the brake work in a batch
+POST {{baseUrl}}/api/orders/{{orderId}}/works/batch
+Content-Type: application/json
+
+{
+  "works": [
+    {
+      "description": "Brake service",
+      "partsCost": 60.00,
+      "laborCost": 45.00,
+      "requiredSpecialization": "BRAKES"
+    }
+  ]
+}
+
+###
+# Expected HTTP 200: diagnose the order
+POST {{baseUrl}}/api/orders/{{orderId}}/diagnose
+
+###
+# Expected HTTP 200: approve the order
+POST {{baseUrl}}/api/orders/{{orderId}}/approve
+
+###
+# Expected HTTP 200: assign the mechanic
+PUT {{baseUrl}}/api/orders/{{orderId}}/mechanic
+Content-Type: application/json
+
+{
+  "mechanicId": "{{mechanicId}}"
+}
+
+###
+# Expected HTTP 200: start work
+POST {{baseUrl}}/api/orders/{{orderId}}/start
+
+###
+# Expected HTTP 200: complete engine work
+POST {{baseUrl}}/api/orders/{{orderId}}/works/0/complete
+
+###
+# Expected HTTP 200: complete brake work
+POST {{baseUrl}}/api/orders/{{orderId}}/works/1/complete
+
+###
+# Expected HTTP 200: complete the order with base price 390.00
+POST {{baseUrl}}/api/orders/{{orderId}}/complete
+
+###
+# Expected HTTP 200: get base and final price 390.00
+GET {{baseUrl}}/api/orders/{{orderId}}/price
+
+###
+# Expected HTTP 200: get the parts gift
+GET {{baseUrl}}/api/orders/{{orderId}}/present
+
+###
+# Expected HTTP 200: create an urgent-priority order
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001"
+}
+
+> {%
+  client.global.set("urgentOrderId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: add urgent-order works
+POST {{baseUrl}}/api/orders/{{urgentOrderId}}/works/batch
+Content-Type: application/json
+
+{
+  "works": [
+    {
+      "description": "Engine service",
+      "partsCost": 200.00,
+      "laborCost": 85.00,
+      "requiredSpecialization": "ENGINE"
+    },
+    {
+      "description": "Brake service",
+      "partsCost": 60.00,
+      "laborCost": 45.00,
+      "requiredSpecialization": "BRAKES"
+    }
+  ]
+}
+
+###
+# Expected HTTP 200: set urgent priority
+PUT {{baseUrl}}/api/orders/{{urgentOrderId}}/priority
+Content-Type: application/json
+
+{
+  "priority": "URGENT"
+}
+
+###
+# Expected HTTP 200: urgent final price is 416.00
+GET {{baseUrl}}/api/orders/{{urgentOrderId}}/price

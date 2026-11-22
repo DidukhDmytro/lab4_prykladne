@@ -1,0 +1,51 @@
+# Expected HTTP 201: register a customer
+POST {{baseUrl}}/api/customers
+Content-Type: application/json
+
+{
+  "fullName": "Alex Morgan",
+  "phoneNumber": "+1-555-0100"
+}
+
+> {%
+  client.global.set("customerId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: register a car owned by the customer
+POST {{baseUrl}}/api/cars
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001",
+  "make": "Example Motors",
+  "model": "Roadster",
+  "year": 2010,
+  "ownerId": "{{customerId}}"
+}
+
+###
+# Expected HTTP 201: register a general mechanic
+POST {{baseUrl}}/api/mechanics
+Content-Type: application/json
+
+{
+  "fullName": "Taylor General",
+  "specialization": "GENERAL"
+}
+
+> {%
+  client.global.set("mechanicId", response.body.id);
+%}
+
+###
+# Expected HTTP 200: verify the registered customer
+GET {{baseUrl}}/api/customers/{{customerId}}
+
+###
+# Expected HTTP 200: verify the registered car
+GET {{baseUrl}}/api/cars/HTTP-VIN-001
+
+###
+# Expected HTTP 200: verify the registered mechanic
+GET {{baseUrl}}/api/mechanics/{{mechanicId}}

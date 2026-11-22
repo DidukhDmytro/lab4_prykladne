@@ -1,0 +1,30 @@
+# Expected HTTP 200: page size 1
+GET {{baseUrl}}/api/orders?page=0&size=1&sort=status,asc
+
+###
+# Expected HTTP 200: Spring clamps page size 51 to 50
+GET {{baseUrl}}/api/orders?page=0&size=51&sort=id,desc
+
+###
+# Expected HTTP 200: page size 50
+GET {{baseUrl}}/api/orders?page=0&size=50
+
+###
+# Expected HTTP 400: page size zero is invalid
+GET {{baseUrl}}/api/orders?page=0&size=0
+
+###
+# Expected HTTP 200: sort by priority
+GET {{baseUrl}}/api/orders?page=0&size=20&sort=priority,desc
+
+###
+# Expected HTTP 200: filter by status
+GET {{baseUrl}}/api/orders?status=COMPLETED&page=0&size=20&sort=completedAt,desc
+
+###
+# Expected HTTP 400: invalid status value
+GET {{baseUrl}}/api/orders?status=UNKNOWN&page=0&size=20
+
+###
+# Expected HTTP 400: sort property is not whitelisted
+GET {{baseUrl}}/api/orders?page=0&size=20&sort=works,asc

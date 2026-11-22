@@ -1,0 +1,172 @@
+# Expected HTTP 201: create an empty order
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001"
+}
+
+> {%
+  client.global.set("emptyOrderId", response.body.id);
+%}
+
+###
+# Expected HTTP 409: approval requires work
+POST {{baseUrl}}/api/orders/{{emptyOrderId}}/diagnose
+
+###
+# Expected HTTP 409: approve an empty order
+POST {{baseUrl}}/api/orders/{{emptyOrderId}}/approve
+
+###
+# Expected HTTP 201: create an order to test start without a mechanic
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001"
+}
+
+> {%
+  client.global.set("noMechanicOrderId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: add work to the no-mechanic order
+POST {{baseUrl}}/api/orders/{{noMechanicOrderId}}/works
+Content-Type: application/json
+
+{
+  "description": "General inspection",
+  "partsCost": 0.00,
+  "laborCost": 50.00,
+  "requiredSpecialization": "GENERAL"
+}
+
+###
+# Expected HTTP 200: diagnose the no-mechanic order
+POST {{baseUrl}}/api/orders/{{noMechanicOrderId}}/diagnose
+
+###
+# Expected HTTP 200: approve the no-mechanic order
+POST {{baseUrl}}/api/orders/{{noMechanicOrderId}}/approve
+
+###
+# Expected HTTP 409: start without a mechanic
+POST {{baseUrl}}/api/orders/{{noMechanicOrderId}}/start
+
+###
+# Expected HTTP 201: create a first order for busy-mechanic test
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001"
+}
+
+> {%
+  client.global.set("busyFirstOrderId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: add work for busy-mechanic test
+POST {{baseUrl}}/api/orders/{{busyFirstOrderId}}/works
+Content-Type: application/json
+
+{
+  "description": "General inspection",
+  "partsCost": 0.00,
+  "laborCost": 50.00,
+  "requiredSpecialization": "GENERAL"
+}
+
+###
+# Expected HTTP 200: advance the first busy-mechanic order
+POST {{baseUrl}}/api/orders/{{busyFirstOrderId}}/diagnose
+
+###
+# Expected HTTP 200: approve the first busy-mechanic order
+POST {{baseUrl}}/api/orders/{{busyFirstOrderId}}/approve
+
+###
+# Expected HTTP 200: assign the mechanic and mark it busy
+PUT {{baseUrl}}/api/orders/{{busyFirstOrderId}}/mechanic
+Content-Type: application/json
+
+{
+  "mechanicId": "{{mechanicId}}"
+}
+
+###
+# Expected HTTP 201: create a second order for busy-mechanic test
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001"
+}
+
+> {%
+  client.global.set("busySecondOrderId", response.body.id);
+%}
+
+###
+# Expected HTTP 201: add work to the second busy-mechanic order
+POST {{baseUrl}}/api/orders/{{busySecondOrderId}}/works
+Content-Type: application/json
+
+{
+  "description": "General inspection",
+  "partsCost": 0.00,
+  "laborCost": 50.00,
+  "requiredSpecialization": "GENERAL"
+}
+
+###
+# Expected HTTP 409: assign an already busy mechanic
+PUT {{baseUrl}}/api/orders/{{busySecondOrderId}}/mechanic
+Content-Type: application/json
+
+{
+  "mechanicId": "{{mechanicId}}"
+}
+
+###
+# Expected HTTP 409: forbidden transition from CREATED
+POST {{baseUrl}}/api/orders/{{emptyOrderId}}/approve
+
+###
+# Expected HTTP 409: duplicate VIN
+POST {{baseUrl}}/api/cars
+Content-Type: application/json
+
+{
+  "vin": "HTTP-VIN-001",
+  "make": "Duplicate",
+  "model": "Reject",
+  "year": 2020,
+  "ownerId": "{{customerId}}"
+}
+
+###
+# Expected HTTP 400: invalid body returns field errors
+POST {{baseUrl}}/api/customers
+Content-Type: application/json
+
+{
+  "fullName": "",
+  "phoneNumber": ""
+}
+
+###
+# Expected HTTP 404: unknown order
+GET {{baseUrl}}/api/orders/00000000-0000-0000-0000-000000000000
+
+###
+# Expected HTTP 409: modify a completed order
+PUT {{baseUrl}}/api/orders/{{orderId}}/priority
+Content-Type: application/json
+
+{
+  "priority": "URGENT"
+}
