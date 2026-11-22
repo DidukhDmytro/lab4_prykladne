@@ -26,6 +26,27 @@ public class ApiMessages {
     public static final String COST_DIGITS_INVALID = "Cost must have up to 10 integer digits and 2 fraction digits.";
     public static final String WORKS_REQUIRED = "At least one work item is required.";
 
+    public static final String BAD_REQUEST_TITLE = "Bad Request";
+    public static final String NOT_FOUND_TITLE = "Not Found";
+    public static final String CONFLICT_TITLE = "Conflict";
+    public static final String INTERNAL_ERROR_TITLE = "Internal Server Error";
+    public static final String VALIDATION_DETAIL = "One or more request fields are invalid.";
+    public static final String MALFORMED_REQUEST_DETAIL = "The request body is malformed or contains an invalid value.";
+    public static final String TYPE_MISMATCH_DETAIL = "The request parameter or path variable has an invalid value.";
+    public static final String NOT_FOUND_DETAIL = "The requested resource was not found.";
+    public static final String UNKNOWN_ROUTE_DETAIL = "The requested route does not exist.";
+    public static final String CONFLICT_DETAIL = "The request conflicts with the current resource state.";
+    public static final String DATA_INTEGRITY_DETAIL = "The request conflicts with existing data.";
+    public static final String INTERNAL_ERROR_DETAIL = "An unexpected server error occurred.";
+
+    public static final String BAD_REQUEST_TYPE = "https://api.carservice.example/problems/bad-request";
+    public static final String VALIDATION_TYPE = "https://api.carservice.example/problems/validation";
+    public static final String NOT_FOUND_TYPE = "https://api.carservice.example/problems/not-found";
+    public static final String CONFLICT_TYPE = "https://api.carservice.example/problems/conflict";
+    public static final String DATA_INTEGRITY_TYPE = "https://api.carservice.example/problems/data-integrity";
+    public static final String INTERNAL_ERROR_TYPE = "https://api.carservice.example/problems/internal-error";
+    public static final String UNKNOWN_ROUTE_TYPE = "https://api.carservice.example/problems/unknown-route";
+
     private ApiMessages() {
     }
 }
