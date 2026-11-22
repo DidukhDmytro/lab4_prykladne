@@ -24,3 +24,9 @@ Apply these rules to every file generated or modified in this project:
 - E2E tests must not inject beans or repositories and must not use `@Transactional`.
 - Do not change existing domain invariants or existing tests unless a task explicitly says otherwise.
 - Run `mvn -q clean verify` after each task.
+
+Test and build structure:
+- Unit tests use `*Test` and run with Surefire.
+- Integration tests use `*IT` in package `integration` and run with the `integration` Maven profile.
+- E2E tests use `*E2EIT` in package `e2e` and run with the `e2e` Maven profile.
+- `mvn verify` runs all test levels.

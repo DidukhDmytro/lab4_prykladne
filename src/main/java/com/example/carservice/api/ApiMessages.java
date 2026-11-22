@@ -44,7 +44,6 @@ public class ApiMessages {
     public static final String VALIDATION_DETAIL = "One or more request fields are invalid.";
     public static final String MALFORMED_REQUEST_DETAIL = "The request body is malformed or contains an invalid value.";
     public static final String TYPE_MISMATCH_DETAIL = "The request parameter or path variable has an invalid value.";
-    public static final String NOT_FOUND_DETAIL = "The requested resource was not found.";
     public static final String UNKNOWN_ROUTE_DETAIL = "The requested route does not exist.";
     public static final String CONFLICT_DETAIL = "The request conflicts with the current resource state.";
     public static final String DATA_INTEGRITY_DETAIL = "The request conflicts with existing data.";

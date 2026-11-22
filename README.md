@@ -1,15 +1,15 @@
 # Car Service
 
-A Java 25 console application built with Spring Boot 4.1.2 for registering customers, cars, and
-mechanics, managing repair orders, calculating prices, and persisting data in PostgreSQL.
+A Java 25 REST application built with Spring Boot 4.1.2 for managing customers, cars,
+mechanics, repair orders, service works, and pricing in PostgreSQL.
 
 ## Requirements
 
 - JDK 25
 - Apache Maven
-- Docker with Docker Compose (for PostgreSQL 18 and the Testcontainers integration tests)
+- Docker for PostgreSQL 18 and Testcontainers
 
-## Run the application
+## Run locally
 
 Start PostgreSQL:
 
@@ -17,144 +17,146 @@ Start PostgreSQL:
 docker compose up -d
 ```
 
-Run the app:
+Run the application:
 
 ```sh
 mvn spring-boot:run
 ```
 
-Use the IntelliJ HTTP request collection in `http/` for REST API examples. Start the application
-and select the `local` environment in `http/http-client.env.json`.
+The API listens on `http://localhost:8080`. The local database is
+`jdbc:postgresql://localhost:5432/carservice` with username `carservice` and password
+`carservice`. `DB_URL` and `DB_USERNAME` override the database URL and username.
 
-The application connects to `jdbc:postgresql://localhost:5432/carservice` with username `carservice`
-and password `carservice`; these are local development credentials defined in `docker-compose.yml`
-and `src/main/resources/application.yml`. `DB_URL` and `DB_USERNAME` can override the URL and
-username through environment variables. The password is not configurable through the environment.
-Stop PostgreSQL when finished with `docker compose down`; the named volume preserves its data. To
-recreate an existing local database after these migration changes, run
+Stop PostgreSQL with `docker compose down`. Recreate it with
 `docker compose down -v && docker compose up -d`.
 
-## Tests
+## REST API
 
-Run unit tests (no Docker required):
+| Method | Path | Response |
+|---|---|---|
+| `POST` | `/api/customers` | `201`, `CustomerResponse`, `Location: /api/customers/{id}` |
+| `GET` | `/api/customers/{id}` | `200`, `CustomerResponse` |
+| `POST` | `/api/cars` | `201`, `CarResponse`, `Location: /api/cars/{vin}` |
+| `GET` | `/api/cars/{vin}` | `200`, `CarResponse` |
+| `POST` | `/api/mechanics` | `201`, `MechanicResponse`, `Location: /api/mechanics/{id}` |
+| `GET` | `/api/mechanics/{id}` | `200`, `MechanicResponse` |
+| `POST` | `/api/orders` | `201`, `OrderResponse`, `Location: /api/orders/{id}` |
+| `GET` | `/api/orders/{id}` | `200`, `OrderResponse` |
+| `GET` | `/api/orders?status=&page=&size=&sort=` | `PageResponse<OrderResponse>` |
+| `POST` | `/api/orders/{id}/works` | `201`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/works/batch` | `201`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/works/{index}/complete` | `200`, `OrderResponse` |
+| `PUT` | `/api/orders/{id}/mechanic` | `200`, `OrderResponse` |
+| `PUT` | `/api/orders/{id}/priority` | `200`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/diagnose` | `200`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/approve` | `200`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/start` | `200`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/complete` | `200`, `OrderResponse` |
+| `POST` | `/api/orders/{id}/cancel` | `200`, `OrderResponse` |
+| `GET` | `/api/orders/{id}/price` | `200`, `PriceResponse` |
+| `GET` | `/api/orders/{id}/present` | `200`, `PresentResponse` |
+
+Order status changes use explicit POST action endpoints. There is no generic status-change
+endpoint and no PUT/PATCH status endpoint.
+
+## Status codes and ProblemDetails
+
+Errors use Spring RFC 9457 `application/problem+json` responses. The body includes `status`,
+`title`, `detail`, `type`, and `instance`.
+
+- `400 Bad Request`: Bean Validation failures, malformed JSON, invalid enum/path values,
+  constraint violations, invalid sort properties, and invalid arguments.
+- `404 Not Found`: unknown entities and unknown routes.
+- `409 Conflict`: duplicate data, data-integrity conflicts, optimistic-lock conflicts, and
+  domain/business-rule violations.
+- `500 Internal Server Error`: generic unexpected failures without SQL, stack traces, or class names.
+
+Business-rule violations return `409 Conflict`, not `422 Unprocessable Content`, because the
+request is syntactically valid and passes validation; the current state of the resource prevents
+the requested operation.
+
+## Pagination and sorting
+
+`GET /api/orders` accepts an optional `status`, `page`, `size`, and `sort`.
+
+- Default page size: 20
+- Maximum page size: 50; values above 50 are clamped to 50
+- Size 0: defaults to 20
+- Default sort: `id,asc`
+- Sort whitelist: `status`, `priority`, `finalPrice`, `completedAt`, `id`
+- `id,asc` is appended as a tie-breaker unless `id` is already requested
+- Multiple sort parameters are supported
+
+The service paginates repair-order IDs first, then loads the associated works and relationships
+with an entity graph and restores page order. It does not use collection `join fetch` pagination.
+
+## HTTP request collection
+
+The IntelliJ `.http` collection is under `http/`. Select the `local` environment from
+`http/http-client.env.json`, which defines `baseUrl=http://localhost:8080`. The scripts store
+created IDs in variables where later requests depend on them.
+
+## Test levels
+
+Docker is required for integration and E2E levels.
 
 ```sh
-mvn -q clean test
+mvn test                    # unit tests only
+mvn verify -Pintegration    # integration tests only
+mvn verify -Pe2e            # end-to-end tests only
+mvn -q clean verify         # unit + integration + E2E
 ```
 
-Run the full suite, including PostgreSQL integration tests (Docker required):
+Unit tests use `*Test` and contain no Spring application context or Docker containers. Integration
+tests use `*IT` in `com.example.carservice.integration`. E2E tests use `*E2EIT` in
+`com.example.carservice.e2e`, run against a random-port server, and do not inject beans or
+repositories or use test transactions.
 
-```sh
-mvn clean verify
-```
-
-`RepairOrderIT` exercises complete normal- and urgent-priority service lifecycles, presents, status
-lookup and car ownership, duplicate-VIN rejection, invalid work-batch rollback, and failed-completion
-rollback. `OptimisticLockingIT` covers stale updates, retry after reload, and competing service
-assignments of one mechanic to different orders.
-
-The integration-test Spring configuration starts PostgreSQL through a `@ServiceConnection` bean.
-`IntegrationTest` runs `src/test/resources/sql/cleanup.sql` before each test. Integration tests are
-not wrapped in test-managed transactions, so service transaction commits, rollbacks, and concurrent
-updates are exercised.
-If Testcontainers cannot find a Docker environment on a newer Docker Engine, check the daemon's
-minimum API version with `docker version` and create `~/.docker-java.properties` containing
-`api.version=1.44` (use the daemon's minimum API version if it is higher).
+Integration tests use the fixed Clock from `IntegrationTestConfiguration` and PostgreSQL
+Testcontainers. Both integration and E2E tests reuse
+`PostgreSqlTestContainerConfiguration`. E2E and integration data is isolated by test-created,
+UUID-based identifiers and test cleanup rules; tests do not assume exact global totals.
 
 ## Project structure
 
 ```text
 src/
 ├── main/java/com/example/carservice/
-│   ├── app/          # Custom pricing-rule examples
-│   ├── config/       # Application constants and pricing/clock beans
-│   ├── domain/       # JPA-mapped domain objects and business rules
-│   │   └── enumerate/ # Domain and pricing enums
-│   ├── exception/    # Domain and application exceptions/messages
-│   ├── pricing/      # Pricing policy, engine, contexts, and rules
-│   ├── repository/   # Spring Data repository interfaces
-│   └── service/      # Registration, repair-order, and gift services
+│   ├── api/               # Controllers, record DTOs, mappers, paths, and ProblemDetail advice
+│   ├── app/               # Standalone pricing-rule examples
+│   ├── config/            # Pricing and Clock configuration
+│   ├── domain/            # JPA entities and business invariants
+│   ├── exception/         # Domain/application exceptions and messages
+│   ├── pricing/           # Pricing policy, context, engine, and rules
+│   ├── repository/        # Spring Data repository interfaces
+│   └── service/           # Transactional application services
 ├── main/resources/
-│   └── db/migration/ # Flyway SQL migrations
-├── test/java/com/example/carservice/
-│   ├── domain/       # Domain invariant tests
-│   ├── integration/  # PostgreSQL/Testcontainers integration tests and configuration
-│   ├── pricing/      # Pricing tests
-│   ├── repository/   # Repository tests
-│   └── service/      # Service unit tests
-└── test/resources/
-    └── sql/
-        └── cleanup.sql  # Integration-test database cleanup
+│   └── db/migration/      # Flyway migrations
+└── test/java/com/example/carservice/
+    ├── api/               # REST unit tests
+    ├── domain/            # Domain invariant tests
+    ├── e2e/               # Random-port E2E tests
+    ├── integration/       # PostgreSQL integration tests
+    ├── pricing/           # Pricing unit tests
+    ├── service/           # Service unit tests
+    └── support/           # Shared Testcontainers configuration
 ```
 
 ## Architecture
 
-- **Domain:** `Customer`, `Car`, `Mechanic`, `RepairOrder`, and `ServiceWork` hold business state
-  and enforce invariants and transitions. These same domain classes are the JPA entities; gifts and
-  presents are not entities.
-- **Services and transactions:** `RegistrationService` and `RepairOrderService` use constructor
-  injection. `RepairOrderService` is `@Transactional`; read operations are read-only. Completion
-  updates order status, releases its mechanic, calculates the final price, records the completion
-  time, and saves as one transaction. `addWorks` validates and adds the batch in one transaction
-  and saves once. Runtime exceptions trigger Spring's default rollback behavior, so failures do not
-  persist partial completion or batch changes.
-- **Repositories:** `CustomerRepository`, `CarRepository`, `MechanicRepository`, and
-  `RepairOrderRepository` are Spring Data repository interfaces. Missing lookups return
-  `Optional.empty()`. `RepairOrderRepository` uses `@EntityGraph` and fetch-join queries for
-  relationships needed outside a transaction.
-- **Pricing:** `PricingPolicy` is the service-facing abstraction. `PriceCalculator` adapts order
-  totals into `PricingContext`; `PricingRuleEngine` orders and applies rules, clamps negative
-  results, applies the minimum, and rounds once to two decimals.
+- **Controller/mapper boundary:** controllers accept record DTOs and call services only.
+  `@Component` mappers convert domain objects to responses and requests to domain objects.
+- **Services:** `RegistrationService` and `RepairOrderService` own transactions and lookup rules.
+- **Domain:** entities enforce invariants and state transitions.
+- **Repositories:** Spring Data JPA provides persistence. Car lookup fetches its owner; repair-order
+  lookup fetches relationships needed outside a transaction.
+- **Pagination:** the repair-order list is two-step: one database page of IDs, then an entity graph
+  load of those IDs with page-order restoration.
+- **Pricing:** `PricingPolicy` is the service-facing abstraction; `PriceCalculator` applies
+  ordered pricing rules and returns a rounded final price.
 
-## Database schema and migrations
+## Database schema
 
-Flyway owns schema changes; Hibernate validates the resulting schema
-(`spring.jpa.hibernate.ddl-auto=validate`). Existing local databases must be recreated with
-`docker compose down -v && docker compose up -d` because V1-V3 have changed in place. V1
-(`V1__init_schema.sql`) creates customers, cars,
-mechanics, repair orders, and service works, including enum and non-negative-cost checks, foreign
-keys, and indexes. V2 (`V2__add_order_version.sql`) adds the non-null `repair_orders.version`
-column; V3 (`V3__add_mechanic_version.sql`) adds the non-null `mechanics.version` column. The
-`RepairOrder.works` relationship is a unidirectional `@OneToMany` with `@JoinColumn(name = "order_id")`
-and `@OrderColumn(name = "position")` on its owning side. Keeping the order column on the owner
-mapping lets Hibernate write both the foreign key and non-null list position when inserting work
-rows.
-
-## Transactions and optimistic locking
-
-`RepairOrderService.complete` loads the order, validates that it can be completed, calculates the
-final price, completes the order, and saves it within one transaction. The domain operation also
-validates completion before releasing the mechanic and recording the completion time.
-`addWorks` also forms a transaction boundary and
-performs the work additions directly in its transactional method instead of calling another
-service method through `this`; self-invocation bypasses Spring's proxy. Runtime exceptions cause
-Spring to roll back the transaction by default.
-
-`RepairOrder.version` is annotated with JPA `@Version`. Hibernate's update includes the previous
-version in a predicate equivalent to
-`UPDATE repair_orders SET ..., version = ? WHERE id = ? AND version = ?`. A concurrent update that
-has already advanced the version makes the stale update affect no row; Spring reports
-`ObjectOptimisticLockingFailureException`, typically during flush or commit. This is optimistic
-locking: no database row lock is held during the edit, and conflicts are detected on write.
-Pessimistic locking acquires a database lock up front and can block competing transactions. The
-`OptimisticLockingIT` integration tests coordinate two transactions, verify the stale update fails,
-and demonstrate that reloading before retrying succeeds.
-
-`Mechanic.version` also uses `@Version`, so concurrent orders cannot both commit an assignment
-based on the same free mechanic state. One competing transaction succeeds, while the stale
-assignment fails with an optimistic-locking exception and leaves the mechanic assigned only once.
-
-## Business rules
-
-| Rule | Enforced by |
-|---|---|
-| Car VIN and owner are required | `Car` constructor |
-| Customer id, name, and phone number are required | `Customer` constructor |
-| Mechanic id, name, and specialization are required; mechanics start free | `Mechanic` constructor |
-| Work description, costs, and specialization are valid; zero costs are allowed | `ServiceWork` constructor |
-| An assigned mechanic must be compatible with all work | `RepairOrder.addWork` and `RepairOrder.assignMechanic` |
-| Approval requires work; progress requires approval and an assigned mechanic | `RepairOrder.approve` and `RepairOrder.startProgress` |
-| Completion requires all work complete; completion and cancellation release the mechanic | `RepairOrder.complete` and `RepairOrder.cancel` |
-| Completed or cancelled orders cannot be modified | `RepairOrder` modification operations |
-| Urgent priority adds a surcharge to labor only | `UrgentSurchargeRule` |
-| Parts-total gift tiers select washer fluid, interior cleaning, or a voucher | `GiftPolicy` |
+Flyway owns the schema and Hibernate validates it. V1 creates customers, cars, mechanics,
+repair orders, and service works. V2 and V3 add optimistic-lock versions for repair orders and
+mechanics.
